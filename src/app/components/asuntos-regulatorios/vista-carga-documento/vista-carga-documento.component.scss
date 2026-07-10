@@ -217,7 +217,7 @@
   font-weight: 400 !important;
 }
 
-/deep/  .dropListSelect {
+::ng-deep  .dropListSelect {
   min-width: 186px;
   & .container-drop {
     &  .Title {
@@ -227,7 +227,7 @@
     }
   }
 }
-/deep/ .dropList{
+::ng-deep .dropList{
   min-width: 186px;
 }
 @media all and(min-width: 1300px) and (max-width: 1509px){

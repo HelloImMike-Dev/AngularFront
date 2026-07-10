@@ -17,22 +17,25 @@ export class  SessionUser {
 // private ip: string = "http://192.168.2.126:8081/api/";
   // private ip: string = "http://localhost:8081/api/";
   private ip81: string = 'http://localhost:8081/api/';
+  private dirPruebasLocal: string = 'http://192.168.1.26:8081/ProquifaNet/';
+  private dirPruebas58: string = 'http://172.24.32.58:8080/ProquifaNet/';
   private miIP: string = 'http://192.168.2.100:8081/api/';
   private ipJosi: string = 'http://192.168.2.156:8081/api/';
   private ipProduccionB: string = 'http://www.proquifaconnect.mx:8080/ProquifaNet/';
   private nuevaDev: string = 'http://172.24.20.12:8080/ProquifaNet/';
   private dirDesarrollo: string = 'http://172.24.32.14:8080/ProquifaNet/';
-  private dirOriginal: string = 'https://pqnetangular.ryndem.mx/ProquifaNet/';
+  private dirOriginal: string = 'https://pqnetangular.ryndem.mx/ProquifaNet/';   //IP DE PRODUCCION
   private ipFer: string = 'http://172.24.42.46:8081/api/';
   private ipDevLocal: string = 'http://192.168.2.41:8081/ProquifaNet/';
   private ipDevUAT: string = 'http://172.24.32.34:8080/ProquifaNet/';
-  //private ipDevLocal:   string = 'http://192.168.2.106:8081/api/';
   private QA : string = 'http://172.24.32.34:9090/ProquifaNet/';
   private ipAle: string = 'http://192.168.1.53:8081/api/'
   private ipVRA: string = 'http://192.168.1.126:8081/api/'
   private ipJDMar: string =  'http://192.168.1.80:8081/api/'
+  private Desarrollo2: string =  'http://172.24.32.58:8080/ProquifaNet/'
 
   private user: Empleado;
+
 
   dataPost: any;
   constructor() {
@@ -65,13 +68,15 @@ export class  SessionUser {
   public getIP() {
    // return  this.ipMiguel;
   //  return this.ip;
-     //  return this.ip81;
-     // return this.ipProduccion;
+       return this.ip81;
      //  return this.ipJosi;
     // return this.ipSara;
      //return this.ipProduccionB;
      //return this.nuevaDev;
-    return this.dirOriginal;
+    //return this.dirOriginal;
+    //return this.dirPruebas58;
+    //return this.dirPruebasLocal;
+    //return this.Desarrollo2;
     //return this.dirDesarrollo;
     //return this.ipDevUAT;
     //return this.ipFer;

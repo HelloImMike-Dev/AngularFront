@@ -682,7 +682,7 @@ section.visible {
 .corteTexto{
   @include multiLineTextTruncateSinHeight(1, 1.2);
 }
-/deep/  .dropListSelect {
+::ng-deep  .dropListSelect {
   & .container-drop {
     &  .Title {
       & > p{

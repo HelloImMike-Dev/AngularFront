@@ -641,7 +641,7 @@ section.visible {
   color: #424242;
   text-align: left;
 }
-/deep/  .dropListSelect {
+::ng-deep  .dropListSelect {
   & .container-drop {
     &  .Title {
       & > p{

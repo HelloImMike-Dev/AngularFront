@@ -712,7 +712,7 @@
   position: relative;
   z-index: 1;
 }
-/deep/  .dropListSelect {
+::ng-deep  .dropListSelect {
   & .container-drop {
     &  .Title {
       height: 20px!important;

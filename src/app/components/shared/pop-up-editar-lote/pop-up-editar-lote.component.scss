@@ -403,7 +403,7 @@ pn-combo-flecha-verde{
 
   }
 }
-/deep/  .fileInput {
+::ng-deep  .fileInput {
   & .content {
    & > img {
      display: none;

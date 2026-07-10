@@ -19,18 +19,18 @@
       transform-style: preserve-3d;
       position: relative;
 
-      &:host /deep/ div.front-face:nth-child(1), &:host /deep/ div.back-face:nth-child(2) {
+      &:host ::ng-deep div.front-face:nth-child(1), &:host ::ng-deep div.back-face:nth-child(2) {
         position: absolute;
         top: 0;
         left: 0;
         backface-visibility: hidden;
       }
-      &:host /deep/ div.front-face:nth-child(1) {
+      &:host ::ng-deep div.front-face:nth-child(1) {
         z-index: 2;
         transform: rotateY(0);
       }
 
-      &:host /deep/ div.back-face:nth-child(2) {
+      &:host ::ng-deep div.back-face:nth-child(2) {
         transform: rotateY(180deg);
       }
     }

@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { InspeccionService } from '../../../../services/inspeccion/inspeccion.service';
 import {ContadorPiezasXPrioridad} from '../../../../class/despachos/ContadorPiezasXPrioridad.class';
 import {totalesInspeccionProducto} from '../../../../class/despachos/TotalesInspeccionProducto.class';
+import { SessionUser } from '../../../../services/session/session.service';
 
 @Component({
   selector: 'pq-barra-progreso-embalaje',
@@ -76,7 +77,7 @@ export class BarraProgresoEmbalajeComponent implements OnInit {
   promedio: string;
   restante: string;
     ngOnInit() {
-      // this.obtenerDatosInspector(); //Descomentar la linea para conectar con el usuario de la sesion.
+      this.inspector = SessionUser.getInstance().getUser().getUsuario();
       /*this.obtenerPiezasInspeccionadasHoy(this.inspector);*/
       this.obtenerPiezasInspeccion(this.inspector);
       this.idHora = setInterval(() => {

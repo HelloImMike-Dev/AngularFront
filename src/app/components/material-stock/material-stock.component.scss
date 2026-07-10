@@ -490,7 +490,7 @@ header{
 .imgEstado{
   height: 17px;
 }
-/deep/  .list {
+::ng-deep  .list {
   justify-content: center;
 }
 

@@ -205,7 +205,7 @@
   cursor: pointer;
 }
 
-/deep/  .list {
+::ng-deep  .list {
   justify-content: center;
 }
 .sinDatos{
