@@ -12,6 +12,7 @@ import { Subscription } from 'rxjs/Subscription';
 import {CoreContainerComponent} from '../../../../core-container/core-container.component';
 import {Parametros} from '../../../../../class/Parametros.class';
 import {CamaraService, ErrorCamara} from '../../../../../services/camara/camara.service';
+import {VideoPendienteService} from '../../../../../services/camara/video-pendiente.service';
 import {folioVideoDeRespuesta, mensajeErrorSubidaVideo, timeoutSubidaVideo} from '../../../../../services/camara/video-api.util';
 
 @Component({
@@ -96,6 +97,7 @@ export class VistaSeccionesInspeccionComponent implements OnInit, OnDestroy {
   limiteGrabacion: boolean = false;
   errorEnvioVideo: string = null;
   private videoBase64: string = null;
+  private quitarRevisionVideo: () => void;
 
    //pasosImprimirEtiqueta:boolean = true;
 
@@ -106,7 +108,8 @@ export class VistaSeccionesInspeccionComponent implements OnInit, OnDestroy {
     private coreComponent: CoreContainerComponent,
     private _commonService: ComunService,
     private camara: CamaraService,
-    private zone: NgZone
+    private zone: NgZone,
+    private videoPendienteService: VideoPendienteService
     ) { }
 
   ngOnInit() {
@@ -116,6 +119,7 @@ export class VistaSeccionesInspeccionComponent implements OnInit, OnDestroy {
     this.prioridad = this.partidaPrioridad.prioridad;
     this.documentoCertificado.nombre = "";
     this.transform(new Date());
+    this.quitarRevisionVideo = this.videoPendienteService.registrar(() => this.mensajeVideoPendiente());
 
     this.subs.add(this.comunService.valueVideo
       .subscribe(
@@ -154,6 +158,22 @@ export class VistaSeccionesInspeccionComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.subs.unsubscribe();
+    if (this.quitarRevisionVideo) {
+      this.quitarRevisionVideo();
+    }
+  }
+  /** Mensaje para avisar antes de salir o cerrar si el video aun no esta en el servidor */
+  mensajeVideoPendiente(): string {
+    if (this.guardandoVideo) {
+      return 'El video de la inspección se está guardando.';
+    }
+    if (this.errorEnvioVideo) {
+      return 'El video de la inspección no se ha enviado.';
+    }
+    if (!this.videoGuardado && (this.camara.grabando || this.limiteGrabacion)) {
+      return 'Hay una grabación de inspección que no se ha guardado.';
+    }
+    return null;
   }
   ngOnChanges(change: SimpleChanges) {
         console.log(change);

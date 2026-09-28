@@ -4,6 +4,7 @@ import {SessionUser} from '../../../../services/session/session.service';
 import {EmbalarService} from '../../../../services/embalar/embalar.service';
 import {ComunService} from '../../../../services/comun/comun.service';
 import {CamaraService, ErrorCamara} from '../../../../services/camara/camara.service';
+import {VideoPendienteService} from '../../../../services/camara/video-pendiente.service';
 import {folioVideoDeRespuesta, mensajeErrorSubidaVideo, timeoutSubidaVideo} from '../../../../services/camara/video-api.util';
 @Component({
   selector: 'pq-vista-embalar-productos',
@@ -96,11 +97,13 @@ export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterV
   private destruido: boolean;
   private videoBase64: string;
   private subsCamara: Subscription[] = [];
+  private quitarRevisionVideo: () => void;
   datosClient: any;
   etiquetaBolsa: boolean;
   tipoEtiqueta: string;
   nombreVideo: string;
-  constructor(private embalarServices: EmbalarService, private ComunServices: ComunService, private camara: CamaraService) {
+  constructor(private embalarServices: EmbalarService, private ComunServices: ComunService, private camara: CamaraService,
+              private videoPendiente: VideoPendienteService) {
   this.vistaVideo = true;
   }
 
@@ -110,6 +113,7 @@ export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterV
     // this.idEmpleado = '54'
     console.log('Soy empleado  convertido<--->', this.idEmpleado);
     this.obtenerFolioPorUsuario(this.idEmpleado);
+    this.quitarRevisionVideo = this.videoPendiente.registrar(() => this.mensajeVideoPendiente());
     this.subsCamara.push(this.camara.errores.subscribe((error: ErrorCamara) => {
       if (this.estadoCamara !== 'apagada' && !this.reproduciendo) {
         this.mostrarErrorCamara(error);
@@ -140,6 +144,22 @@ export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterV
   ngOnDestroy() {
     this.destruido = true;
     this.subsCamara.forEach(subs => subs.unsubscribe());
+    if (this.quitarRevisionVideo) {
+      this.quitarRevisionVideo();
+    }
+  }
+  /** Mensaje para avisar antes de salir o cerrar si el video aun no esta en el servidor */
+  mensajeVideoPendiente(): string {
+    if (this.guardandoVideo) {
+      return 'El video del embalaje se está guardando.';
+    }
+    if (this.errorEnvio && !this.videoGuardado) {
+      return 'El video del embalaje no se ha enviado.';
+    }
+    if (this.embalajeIniciado && !this.videoGuardado && (this.camara.grabando || this.limiteGrabacion)) {
+      return 'Hay una grabación de embalaje que no se ha guardado.';
+    }
+    return null;
   }
   /************************************************************************/
   ngAfterViewInit() {

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu } = require('electron')
+const { app, BrowserWindow, Menu, dialog } = require('electron')
 // const fixPath = require('fix-path');
 //const { ElectronService } =require ('ngx-electron')
 var url = require('url');
@@ -60,6 +60,22 @@ function createWindow() {
 
   const menu = Menu.buildFromTemplate(template)
   Menu.setApplicationMenu(menu);
+
+  // La pagina cancela el cierre cuando hay un video de Inspeccion/Embalar sin guardar (beforeunload)
+  win.webContents.on('will-prevent-unload', function (event) {
+    var opcion = dialog.showMessageBox(win, {
+      type: 'warning',
+      buttons: ['Esperar', 'Cerrar de todas formas'],
+      defaultId: 0,
+      cancelId: 0,
+      title: 'Video sin guardar',
+      message: 'Hay un video de Inspección o Embalar que todavía no se ha guardado.',
+      detail: 'Si cierras ahora, el video se perderá.'
+    });
+    if (opcion === 1) {
+      event.preventDefault();
+    }
+  });
 
   // Event when the window is closed.
   win.on('closed', function () {

@@ -1,3 +1,5 @@
+import {VideoPendienteService} from './services/camara/video-pendiente.service';
+import {VideoPendienteGuard} from './guards/video-pendiente.guard';
 import { BrowserModule } from "@angular/platform-browser";
 import { NgModule } from "@angular/core";
 import { routing } from "./app.routing";
@@ -121,6 +123,8 @@ import {MaterialDestruccionService} from './services/consola-destruccion/materia
   ],
 
   providers: [
+    VideoPendienteService,
+    VideoPendienteGuard,
     // {provide: HTTP_INTERCEPTORS, useCss: InterceptorsService, multi: true},
     LoginService,
     SessionUser,

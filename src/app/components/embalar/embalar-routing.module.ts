@@ -1,5 +1,6 @@
 import { NgModule } from '@angular/core';
 import { RouterModule } from '@angular/router';
+import { VideoPendienteGuard } from '../../guards/video-pendiente.guard';
 import { EmbalarComponent } from "./embalar.component";
 
 
@@ -9,7 +10,8 @@ import { EmbalarComponent } from "./embalar.component";
     RouterModule.forChild([
       {
         path: '',
-        component: EmbalarComponent
+        component: EmbalarComponent,
+        canDeactivate: [VideoPendienteGuard]
       }
     ])
   ],

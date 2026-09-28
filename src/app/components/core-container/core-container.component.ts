@@ -85,8 +85,8 @@ export class CoreContainerComponent implements OnInit {
   }
 
   close() {
+    // app.quit cierra la ventana; si hay un video sin guardar, main.js pregunta antes de cerrar
     this._electronService.remote.app.quit();
-    this._electronService.remote.getCurrentWindow().close();
   }
 
   exitFullScreen() {
