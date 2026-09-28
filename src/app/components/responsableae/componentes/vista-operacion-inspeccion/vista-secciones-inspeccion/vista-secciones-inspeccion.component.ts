@@ -1,4 +1,4 @@
-import { Component, OnInit, Output, ViewChild, Input, SimpleChanges, ElementRef, EventEmitter } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, ViewChild, Input, SimpleChanges, ElementRef, EventEmitter, NgZone } from '@angular/core';
 import { InspeccionNivelPiezaComponent } from '../../inspeccion-nivel-pieza/inspeccion-nivel-pieza.component';
 import { PartidaInspeccion } from '../../../../../class/despachos/PartidaInspeccion.class';
 import { DocumentoAdjunto } from '../../../../../class/comun/DocumentoAdjunto.class';
@@ -11,21 +11,25 @@ import { dateFormatSlash } from '../../../../../pipes/accounting/accounting.pipe
 import { Subscription } from 'rxjs/Subscription';
 import {CoreContainerComponent} from '../../../../core-container/core-container.component';
 import {Parametros} from '../../../../../class/Parametros.class';
-declare const MediaRecorder: any;
-declare const MediaStream: any;
-//declare const navigator: any;
+import {CamaraService, ErrorCamara} from '../../../../../services/camara/camara.service';
 
 @Component({
   selector: 'pn-vista-secciones-inspeccion',
   templateUrl: './vista-secciones-inspeccion.component.html',
-  styleUrls: ['./vista-secciones-inspeccion.component.scss']
+  styleUrls: ['./vista-secciones-inspeccion.component.scss'],
+  providers: [CamaraService]
 })
-export class VistaSeccionesInspeccionComponent implements OnInit {
+export class VistaSeccionesInspeccionComponent implements OnInit, OnDestroy {
 
   @ViewChild('vistaInspeccionPartida') private vistaInspeccion: any;
   @ViewChild('vistaInspeccionPiezas') private vistaPiezas: InspeccionNivelPiezaComponent;
   @ViewChild('popConf') private popC: ElementRef;
-  @ViewChild('video') private video:ElementRef;
+  @ViewChild('video') set video(ref: ElementRef) {
+    this.elementoVideo = ref ? ref.nativeElement : null;
+    if (this.elementoVideo) {
+      this.abrirCamara(this.elementoVideo);
+    }
+  }
   @Input() partidaPrioridad: PartidaInspeccion = new PartidaInspeccion();
   @Input() conDocumentacion: boolean;
   @Output() reiniciarVista: EventEmitter<any> = new EventEmitter<any>();
@@ -59,7 +63,7 @@ export class VistaSeccionesInspeccionComponent implements OnInit {
   reiniciaBarra: boolean = false;
   mostrarPopFinalizar: boolean;
   param: parametrosInspeccion = new parametrosInspeccion();
-  subs: Subscription;
+  subs: Subscription = new Subscription();
   ocultaVideo: boolean;
   cajaVerde: boolean;
   btnVolver: boolean;
@@ -70,10 +74,6 @@ export class VistaSeccionesInspeccionComponent implements OnInit {
   guardarDocumentacion: boolean;
   base64String: any;
   nombreArchivo: any;
-  theStream;
-  theRecorder;
-  recordedChunks = [];
-  mediaConstraints;
   ubicacionImp: string;
   prioridad: any;
   partidaPrioridadNueva: PartidaInspeccion = new PartidaInspeccion();
@@ -86,7 +86,13 @@ export class VistaSeccionesInspeccionComponent implements OnInit {
   rutaImg = 'http://ryndem.mx/DESARROLLO/Imagenes/imagenesEtiqueta/';
   rutaManejo: string;
   ubicacionEtiqueta: string ='';
-   private mediaRecorder: any;
+  private elementoVideo: HTMLVideoElement = null;
+  errorCamara: string;
+  avisoCamara: string;
+  iniciandoCamara: boolean = false;
+  guardandoVideo: boolean = false;
+  videoGuardado: boolean = false;
+  limiteGrabacion: boolean = false;
 
    //pasosImprimirEtiqueta:boolean = true;
 
@@ -95,7 +101,9 @@ export class VistaSeccionesInspeccionComponent implements OnInit {
     private inspeccionT: InspeccionService,
     private comunService: ComunService,
     private coreComponent: CoreContainerComponent,
-    private _commonService: ComunService
+    private _commonService: ComunService,
+    private camara: CamaraService,
+    private zone: NgZone
     ) { }
 
   ngOnInit() {
@@ -106,20 +114,20 @@ export class VistaSeccionesInspeccionComponent implements OnInit {
     this.documentoCertificado.nombre = "";
     this.transform(new Date());
 
-    this.subs = this.comunService.valueVideo
+    this.subs.add(this.comunService.valueVideo
       .subscribe(
         (data) => {
           this.ocultaVideo = data;
           // console.log(data, this.ocultaVideo);
-        });
-    this.subs = this.comunService.folioVideo
+        }));
+    this.subs.add(this.comunService.folioVideo
       .subscribe(
         (data) => {
           console.log(data, "entre subs folio");
           this.folioVideo = data;
-        });
+        }));
 
-        this.subs = this.comunService.guardaVideo.subscribe(
+        this.subs.add(this.comunService.guardaVideo.subscribe(
           (data) => {
             console.log(data);
 
@@ -129,9 +137,16 @@ export class VistaSeccionesInspeccionComponent implements OnInit {
           }, error => {
             console.log(error);
           }
-        );
-    //    this.startFunction();
-    // this.gotMedia(stream);
+        ));
+    this.subs.add(this.camara.errores.subscribe((error: ErrorCamara) => {
+      this.zone.run(() => this.errorCamara = error.mensaje);
+    }));
+    this.subs.add(this.camara.limiteAlcanzado.subscribe(() => {
+      this.zone.run(() => {
+        this.limiteGrabacion = true;
+        this.avisoCamara = 'Se alcanzó el tiempo máximo de grabación (20 min). El video grabado se conserva y se guardará al terminar la inspección.';
+      });
+    }));
   }
 
   ngOnDestroy() {
@@ -139,14 +154,6 @@ export class VistaSeccionesInspeccionComponent implements OnInit {
   }
   ngOnChanges(change: SimpleChanges) {
         console.log(change);
-    }
-    ngAfterViewInit() {
-      // set the initial state of the video
-      let video: HTMLVideoElement = this.video.nativeElement;
-      video.muted = false;
-      video.controls = false;
-      video.autoplay = true;
-      this.startFunction();
     }
   cambioIndex(cambioIndex: number) {
     this.cambioIndexBarra = cambioIndex;
@@ -978,89 +985,58 @@ guardarExistenciasUbicacion( ubicacionDesp:string, pzasDesp:number, ubicacionNoD
 
 }
 
-startFunction() {
-     let video = document.getElementsByTagName('video')[0];
-
-     if (video) {
-       this.mediaConstraints = {
-
-         video: {mandatory: {minWidth: 1480, minHeight: 1024}}, audio: false
-
-       };
-       var that = this;
-       navigator.getUserMedia(
-         { video: true, audio: false },
-         function (stream) {
-           that.theStream = stream;
-           var video = document.getElementsByTagName('video')[0];
-           video.src = window.URL.createObjectURL(stream);
-           video.muted = true;
-
-           try {
-
-             that.mediaRecorder = new MediaRecorder(stream, {mimeType : "video/webm"});
-           } catch (e) {
-             console.error('Exception while creating MediaRecorder: ' + e);
-             return;
-           }
-
-           that.theRecorder = that.mediaRecorder;
-           console.log(that.recordedChunks);
-           that.mediaRecorder.ondataavailable =
-             function (event) { that.recordedChunks.push(event.data); };
-           that.mediaRecorder.start(100);
-
-         },  function(error) {
-           console.log(error);} )
-     }
+abrirCamara(video: HTMLVideoElement) {
+  video.controls = false;
+  video.autoplay = true;
+  if (this.iniciandoCamara) {
+    this.camara.asignarVideo(video);
+    return;
+  }
+  this.iniciandoCamara = true;
+  this.camara.iniciarCamara(video).then(() => {
+    this.iniciandoCamara = false;
+    this.errorCamara = undefined;
+    this.iniciarGrabacionInspeccion();
+  }, (error: ErrorCamara) => {
+    this.iniciandoCamara = false;
+    this.errorCamara = error && error.mensaje ? error.mensaje : 'No fue posible iniciar la cámara.';
+  });
 }
 
-   gotMedia(stream) {
-    this.theStream = stream;
-     var video = document.querySelector('video');
-     video.src = window.URL.createObjectURL(stream);
-     video.onloadedmetadata = (e) => video.play()
-    try {
-
-      this.mediaRecorder = new MediaRecorder(stream, {mimeType : "video/webm"});
-    } catch (e) {
-      console.error('Exception while creating MediaRecorder: ' + e);
-      return;
-    }
-
-    this.theRecorder = this.mediaRecorder;
-    this.mediaRecorder.ondataavailable =
-        (event) => { this.recordedChunks.push(event.data); };
-    this.mediaRecorder.start(100);
+reintentarCamara() {
+  if (this.elementoVideo) {
+    this.abrirCamara(this.elementoVideo);
   }
-
-   save() {
-    this.theRecorder.stop();
-    this.theStream.getTracks().forEach(track => { track.stop(); });
-
-    let blob = new Blob(this.recordedChunks, {type: "video/webm"});
-    let url =  URL.createObjectURL(blob);
-
-
-        this.base64(blob).then((data: string) => {
-          let base = data.split(",");
-          //  console.log(base);
-          let b64 = base[1];
-          //  console.log(b64);
-          this.guardarVideo(b64)
-        });
-
-    setTimeout(function() { URL.revokeObjectURL(url); }, 100);
+}
+iniciarGrabacionInspeccion() {
+  if (this.videoGuardado || this.guardandoVideo || this.limiteGrabacion || this.camara.grabando) {
+    return;
   }
+  try {
+    this.camara.iniciarGrabacion();
+  } catch (error) {
+    this.errorCamara = error && error.mensaje ? error.mensaje : 'No fue posible iniciar la grabación del video.';
+  }
+}
 
-  base64(blob) {
-  return new Promise((resolve, reject) => {
-    let reader = new FileReader();
-    reader.readAsDataURL(blob);
-    reader.onloadend = function() {
-      resolve(reader.result)
-    }
-  });
+save() {
+  if (this.videoGuardado || this.guardandoVideo) {
+    return;
+  }
+  this.guardandoVideo = true;
+  this.camara.detenerGrabacion()
+    .then((blob: Blob) => this.camara.blobABase64(blob))
+    .then((b64: string) => {
+      this.videoGuardado = true;
+      this.guardandoVideo = false;
+      this.guardarVideo(b64);
+    })
+    .catch((error: ErrorCamara) => {
+      this.guardandoVideo = false;
+      console.log(error);
+      this.textoAlerta = 'No se pudo guardar el video de la inspección. ' + (error && error.mensaje ? error.mensaje : '');
+      this.mostrarAlerta = true;
+    });
 }
 
 guardarVideo(obj: any) {

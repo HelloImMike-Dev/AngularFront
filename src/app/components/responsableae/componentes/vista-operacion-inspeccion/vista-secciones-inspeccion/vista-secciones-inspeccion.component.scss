@@ -303,6 +303,53 @@
   justify-content: center;
   align-content: stretch;
   align-items: stretch;
+  position: relative;
+}
+
+.errorCamara {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 0 40px;
+  box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.75);
+  & > .botones {
+    width: 260px;
+  }
+}
+
+.errorCamaraTexto {
+  font-family: 'Novecento';
+  font-weight: bold;
+  font-size: 21px;
+  color: #FFFFFF;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.avisoCamara {
+  position: absolute;
+  left: 16px;
+  right: 10px;
+  bottom: 60px;
+  z-index: 1;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  background: rgba(0, 136, 149, 0.9);
+  & > p {
+    font-family: 'Roboto';
+    font-size: 15px;
+    color: #FFFFFF;
+    text-align: center;
+    margin: 0;
+  }
 }
 
 .textoInferior {

@@ -1,15 +1,16 @@
-import {Component, OnInit, Output, Input, EventEmitter, ViewChild, ElementRef} from '@angular/core';
+import {Component, OnInit, OnChanges, OnDestroy, AfterViewInit, SimpleChanges, Output, Input, EventEmitter, ViewChild, ElementRef} from '@angular/core';
+import {Subscription} from 'rxjs/Subscription';
 import {SessionUser} from '../../../../services/session/session.service';
 import {EmbalarService} from '../../../../services/embalar/embalar.service';
 import {ComunService} from '../../../../services/comun/comun.service';
-declare const MediaRecorder: any;
-declare const MediaStream: any;
+import {CamaraService, ErrorCamara} from '../../../../services/camara/camara.service';
 @Component({
   selector: 'pq-vista-embalar-productos',
   templateUrl: './vista-embalar-productos.component.html',
-  styleUrls: ['./vista-embalar-productos.component.scss']
+  styleUrls: ['./vista-embalar-productos.component.scss'],
+  providers: [CamaraService]
 })
-export class VistaEmbalarProductosComponent implements OnInit {
+export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterViewInit, OnDestroy {
   vistaVideo: boolean;
   vistaEmbalar: boolean;
   @Output() event: EventEmitter<any> = new EventEmitter<any>();
@@ -24,7 +25,22 @@ export class VistaEmbalarProductosComponent implements OnInit {
   @Input() activarImpresionSobreProd: boolean;
   @Input() activarPaking: boolean; // Se recibe la activacion de mandar el paking list y se envia a productos por embalar
   @Output() sobrante: EventEmitter<boolean> = new EventEmitter<boolean>();
-  @ViewChild('video') video: ElementRef;
+  video: ElementRef;
+  @ViewChild('video') set videoElemento(elemento: ElementRef) {
+    this.video = elemento;
+    if (!elemento) {
+      return;
+    }
+    const video: HTMLVideoElement = elemento.nativeElement;
+    video.controls = false;
+    video.autoplay = true;
+    if (this.reproduciendo) {
+      (video as any).srcObject = null;
+      video.src = this.path;
+    } else if (this.camara.camaraActiva) {
+      this.camara.asignarVideo(video);
+    }
+  }
   vistaEtiquetaPoPGene: boolean;
   vistaEtiquetaPoPBolsa: boolean;
   botonGenerar: boolean;
@@ -67,16 +83,23 @@ export class VistaEmbalarProductosComponent implements OnInit {
   enviarTipo: string;
   activarFocus: boolean = false;
   /******VIDEO***/
-  theStream;
-  theRecorder;
-  recordedChunks = [];
-  mediaConstraints;
+  estadoCamara: string; // 'abriendo' | 'lista' | 'error' | 'apagada'
+  errorCamara: string;
+  mensajeAlerta: string;
+  embalajeIniciado: boolean;
+  limiteGrabacion: boolean;
+  guardandoVideo: boolean;
+  videoGuardado: boolean;
+  errorEnvio: boolean;
+  reproduciendo: boolean;
+  private destruido: boolean;
+  private videoBase64: string;
+  private subsCamara: Subscription[] = [];
   datosClient: any;
   etiquetaBolsa: boolean;
   tipoEtiqueta: string;
   nombreVideo: string;
-  private mediaRecorder: any;
-  constructor(private embalarServices: EmbalarService, private ComunServices: ComunService) {
+  constructor(private embalarServices: EmbalarService, private ComunServices: ComunService, private camara: CamaraService) {
   this.vistaVideo = true;
   }
 
@@ -86,90 +109,112 @@ export class VistaEmbalarProductosComponent implements OnInit {
     // this.idEmpleado = '54'
     console.log('Soy empleado  convertido<--->', this.idEmpleado);
     this.obtenerFolioPorUsuario(this.idEmpleado);
+    this.subsCamara.push(this.camara.errores.subscribe((error: ErrorCamara) => {
+      if (this.estadoCamara !== 'apagada' && !this.reproduciendo) {
+        this.mostrarErrorCamara(error);
+        if (this.embalajeIniciado && !this.limiteGrabacion && !this.guardandoVideo) {
+          this.mensajeAlerta = this.errorCamara + ' El embalaje NO se está grabando.';
+        }
+      }
+    }));
+    this.subsCamara.push(this.camara.limiteAlcanzado.subscribe(() => {
+      this.limiteGrabacion = true;
+      this.mensajeAlerta = 'Se alcanzó la duración máxima de grabación (20 minutos). ' +
+        'El video grabado hasta ahora se conservará y se enviará al generar el packing list.';
+    }));
   }
-  ngOnChanges() {
+  ngOnChanges(changes: SimpleChanges) {
     this.datosClient = this.datosCliente;
     if (this.activarImpresionSobreProd) {
       this.cambiarImpresion = true;
       this.openModal = false;
       console.log('Entre de nuevo --->');
     }
-    /*Se manda a llamar al que deitne la camara*/
+    /*Se detiene la grabacion y se envia el video solo cuando se activa el paking list*/
+    const paking = changes.activarPaking;
+    if (paking && paking.currentValue && !paking.previousValue && !paking.isFirstChange()) {
+      this.save();
+    }
+  }
+  ngOnDestroy() {
+    this.destruido = true;
+    this.subsCamara.forEach(subs => subs.unsubscribe());
+  }
+  /************************************************************************/
+  ngAfterViewInit() {
+    // Se abre la camara solo para la vista previa, la grabacion inicia al presionar Iniciar
+    setTimeout(() => this.abrirCamara());
+  }
+  abrirCamara() {
+    if (!this.video || this.destruido) {
+      return;
+    }
+    this.estadoCamara = 'abriendo';
+    this.errorCamara = null;
+    this.camara.iniciarCamara(this.video.nativeElement).then(() => {
+      if (this.destruido || this.reproduciendo || this.videoGuardado || this.guardandoVideo) {
+        this.camara.liberar();
+        this.estadoCamara = 'apagada';
+        return;
+      }
+      this.estadoCamara = 'lista';
+      if (this.embalajeIniciado && !this.limiteGrabacion) {
+        this.iniciarGrabacion();
+      }
+    }, (error: ErrorCamara) => this.mostrarErrorCamara(error));
+  }
+  reintentarCamara() {
+    if (this.estadoCamara !== 'abriendo') {
+      this.abrirCamara();
+    }
+  }
+  iniciarGrabacion() {
+    if (this.estadoCamara === 'abriendo') {
+      return; // Se inicia en cuanto la camara este lista
+    }
+    if (this.estadoCamara === 'error') {
+      this.mensajeAlerta = 'La cámara no está disponible, el embalaje NO se está grabando. ' + this.errorCamara;
+      return;
+    }
+    try {
+      this.camara.iniciarGrabacion();
+    } catch (error) {
+      this.mostrarErrorCamara(error);
+      this.mensajeAlerta = 'El embalaje NO se está grabando. ' + this.errorCamara;
+    }
+  }
+  mostrarErrorCamara(error: ErrorCamara) {
+    this.estadoCamara = 'error';
+    this.errorCamara = error && error.mensaje ? error.mensaje : 'No fue posible iniciar la cámara.';
+  }
+  save() {
+    if (this.guardandoVideo || this.videoGuardado) {
+      return;
+    }
+    this.guardandoVideo = true;
+    this.errorEnvio = false;
+    const obtenerVideo: Promise<string> = this.videoBase64 ? Promise.resolve(this.videoBase64) :
+      this.camara.detenerGrabacion().then(blob => {
+        this.camara.liberar();
+        this.estadoCamara = 'apagada';
+        return this.camara.blobABase64(blob);
+      });
+    obtenerVideo.then((b64: string) => {
+      this.videoBase64 = b64;
+      this.guardarVideo(b64);
+    }, (error: ErrorCamara) => {
+      this.guardandoVideo = false;
+      this.errorEnvio = true;
+      this.mensajeAlerta = 'No se pudo guardar el video del embalaje. ' + (error && error.mensaje ? error.mensaje : '');
+    });
+  }
+  reintentarEnvio() {
     if (this.activarPaking) {
       this.save();
     }
   }
-  /************************************************************************/
-  ngAfterViewInit() {
-    // set the initial state of the video
-    let video: HTMLVideoElement = this.video.nativeElement;
-    video.muted = false;
-    video.controls = false;
-    video.autoplay = true;
-    this.startFunction();
-  }
-  startFunction() {
-    let video = document.getElementsByTagName('video')[0];
-
-    if (video) {
-      this.mediaConstraints = {
-
-        video: {mandatory: {minWidth: 1480, minHeight: 1024}}, audio: false
-
-      };
-      var that = this;
-      navigator.getUserMedia(
-        { video: true, audio: false },
-        function (stream) {
-          that.theStream = stream;
-          var video = document.getElementsByTagName('video')[0];
-          video.src = window.URL.createObjectURL(stream);
-          video.muted = true;
-
-          try {
-
-            that.mediaRecorder = new MediaRecorder(stream, {mimeType : "video/webm"});
-          } catch (e) {
-            console.error('Exception while creating MediaRecorder: ' + e);
-            return;
-          }
-
-          that.theRecorder = that.mediaRecorder;
-          console.log(that.recordedChunks);
-          that.mediaRecorder.ondataavailable =
-            function (event) { that.recordedChunks.push(event.data); };
-          that.mediaRecorder.start(100);
-
-        },  function(error) {
-          console.log(error);} )
-    }
-  }
-  save() {
-    this.theRecorder.stop();
-    this.theStream.getTracks().forEach(track => { track.stop(); });
-
-    let blob = new Blob(this.recordedChunks, {type: "video/webm"});
-    let url =  URL.createObjectURL(blob);
-
-
-    this.base64(blob).then((data: string) => {
-      let base = data.split(",");
-      //  console.log(base);
-      let b64 = base[1];
-      //  console.log(b64);
-      this.guardarVideo(b64);
-    });
-
-    setTimeout(function() { URL.revokeObjectURL(url); }, 100);
-  }
-  base64(blob) {
-    return new Promise((resolve, reject) => {
-      let reader = new FileReader();
-      reader.readAsDataURL(blob);
-      reader.onloadend = function() {
-        resolve(reader.result);
-      }
-    });
+  cerrarAlerta() {
+    this.mensajeAlerta = null;
   }
   guardarVideo(obj: any) {
     const datos = {
@@ -178,11 +223,17 @@ export class VistaEmbalarProductosComponent implements OnInit {
     };
     this.embalarServices.guardarVideo(datos).subscribe(
       data => {
+        this.guardandoVideo = false;
+        this.videoGuardado = true;
+        this.videoBase64 = null;
         this.nombreVideo = data.current;
         console.log('Video ===> ', this.nombreVideo);
       },
       error => {
         console.log(error);
+        this.guardandoVideo = false;
+        this.errorEnvio = true;
+        this.mensajeAlerta = 'No se pudo enviar el video del embalaje. Verifica la conexión y presiona "Reintentar envío".';
       });
 
   }
@@ -194,6 +245,8 @@ export class VistaEmbalarProductosComponent implements OnInit {
    /* this.listaAmbiente = [{folio:1234}];
     this.listaCongelacion = [];*/
     this.vistaVideo = false;
+    this.embalajeIniciado = true;
+    this.iniciarGrabacion();
     // this.vistaEmbalar = true;
     this.i = 1;
     this.event.emit(this.mostrarBotones);
@@ -279,7 +332,14 @@ export class VistaEmbalarProductosComponent implements OnInit {
   reproducirVideo(nombreVideo) {
    /* this.path = this.ruta + nombreVideo + ".webm";*/
     this.path = this.rutaProd + nombreVideo + ".webm";
-    this.video.nativeElement.src = this.path;
+    // srcObject tiene prioridad sobre src, se apaga la camara para poder reproducir
+    this.reproduciendo = true;
+    this.camara.liberar();
+    this.estadoCamara = 'apagada';
+    if (this.video) {
+      (this.video.nativeElement as any).srcObject = null;
+      this.video.nativeElement.src = this.path;
+    }
     if ( nombreVideo !== 'error' ) {
       this.mensajeVideo = false;
       this. videoValido = true;

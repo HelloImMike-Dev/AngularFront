@@ -52,6 +52,13 @@
       <!-- <pq-grabacion-video  class="videoInspeccion" [style.z-index]="ocultaVideo?'-1':'0'" [iniciaVideo]= "iniciaVideo" ></pq-grabacion-video> -->
       <!-- <video  #video class="videoInspeccion" [style.z-index]="ocultaVideo?'-1':'0'"  autoplay ></video> -->
       <video id ="video" #video class="videoInspeccion" [style.z-index]="ocultaVideo?'-1':'0'"  autoplay ></video>
+      <div class="errorCamara" *ngIf="errorCamara && !ocultaVideo">
+        <p class="errorCamaraTexto">{{errorCamara}}</p>
+        <div class="botones" (click)="reintentarCamara()"><label>REINTENTAR CÁMARA</label></div>
+      </div>
+      <div class="avisoCamara" *ngIf="avisoCamara && !errorCamara && !ocultaVideo">
+        <p>{{avisoCamara}}</p>
+      </div>
 
 
       <div class="enfoqueInferior" style="width:100%;flex-direction:row; justify-content:space-between; align-items: flex-end;">

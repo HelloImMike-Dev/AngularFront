@@ -27,6 +27,10 @@
           </div>
         </div>
       </div>
+      <div class="avisoCamara" *ngIf="estadoCamara === 'error'">
+        <p>{{errorCamara}}</p>
+        <div class="btnReintentar" (click)="reintentarCamara()">Reintentar cámara</div>
+      </div>
     </div>
 
     <div class="enfoqueInferior" style="width:100%;flex-direction:row; justify-content:space-between; align-items: flex-end;">
@@ -59,6 +63,12 @@
       </div>
       <video href="path" autoplay height="100%" *ngIf="videoValido" #video style="max-width:330px;">
       </video>
+      <div class="mensajeCamara" *ngIf="!reproduciendo && (estadoCamara === 'abriendo' || estadoCamara === 'error' || (errorEnvio && !guardandoVideo && !videoGuardado))">
+        <p class="tituloCamara">{{estadoCamara === 'error' ? 'CÁMARA NO DISPONIBLE' : (estadoCamara === 'abriendo' ? 'INICIANDO CÁMARA' : 'VIDEO NO ENVIADO')}}</p>
+        <p class="detalleCamara" *ngIf="estadoCamara === 'error'">{{errorCamara}}</p>
+        <div class="btnReintentar" *ngIf="estadoCamara === 'error'" (click)="reintentarCamara()">Reintentar cámara</div>
+        <div class="btnReintentar" *ngIf="estadoCamara !== 'error' && errorEnvio && activarPaking" (click)="reintentarEnvio()">Reintentar envío</div>
+      </div>
       <div class="enfoqueInferior" style="width:100%;flex-direction:row; justify-content:space-between; align-items: flex-end;">
         <img src="./assets/Images/Images/Inf_Izq.svg" alt="" class="imgEnfoque">
         <img src="./assets/Images/Images/Inf_Der.svg" alt="" class="imgEnfoque">
@@ -72,6 +82,9 @@
   </div>
 </div>
   <!--SECCIÓN DE LOS POP-UP-->
+  <div *ngIf="mensajeAlerta">
+    <pq-alerta [alertaTxt]="mensajeAlerta" (confirmacion)="cerrarAlerta()"></pq-alerta>
+  </div>
   <div *ngIf="vistaEtiquetaPoP">
     <!--<pn-pop-up-informativo  (vistaPopEstado)="mostrarModalEtiqueta($event)" ></pn-pop-up-informativo>-->
     <pn-pop-up-informativo  (vistaListaEmbalar)="mostrarListaEmbalar($event)" [tipoMensaje]="tipo"></pn-pop-up-informativo>
