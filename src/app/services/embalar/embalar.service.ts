@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { Http, Response, Headers,  RequestOptions } from '@angular/http';
 import { SessionUser } from '../session/session.service';
 import { Observable } from 'rxjs/Observable';
+import 'rxjs/add/operator/timeout';
 import {Empleado} from '../../class/Empleado.class';
 import {Parametros} from '../../class/Parametros.class';
 import {error} from 'util';
@@ -34,14 +35,15 @@ export class EmbalarService {
     console.log("regreso de service embalaje");
   }
 
-  guardarVideo(data: any) {
+  /** El error se entrega sin transformar para poder mostrar el codigo HTTP y el mensaje del backend */
+  guardarVideo(data: any, timeoutMs: number) {
     let body = data;
     let headers = new Headers();
     headers.append("Content-Type", 'application/json');
     let options = new RequestOptions({ headers: headers });
     return this.http.post(this.apiURLGuardarVideo + '', body, options)
-      .map(data => data.json())
-      .catch((error: any) => Observable.throw(error.json().error || 'Server error'))
+      .timeout(timeoutMs)
+      .map(data => data.json());
   }
   totalesGeneral() {
     const headers = new Headers();

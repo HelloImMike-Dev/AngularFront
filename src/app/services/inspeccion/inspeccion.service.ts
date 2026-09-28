@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { Http, Response, Headers, RequestOptions } from '@angular/http';
 import { SessionUser } from '../session/session.service';
 import { Observable } from 'rxjs/Observable';
+import 'rxjs/add/operator/timeout';
 import { parametrosInspeccion } from '../../class/despachos/parametrosInspeccion.class';
 import { PartidaInspeccion } from '../../class/despachos/PartidaInspeccion.class';
 import { DocumentoAdjunto } from '../../class/comun/DocumentoAdjunto.class';
@@ -199,6 +200,16 @@ export class InspeccionService {
     return this.http.post(this.apiURLnombreArchivo + '', body, options)
       .map(data => data.json())
       .catch((error: any) => Observable.throw(error.json().error || 'Server error'))
+  }
+
+  /** Igual que nombreArchivo pero con timeout y sin transformar el error, para mostrar el codigo HTTP y el mensaje del backend */
+  guardarVideo(data: any, timeoutMs: number) {
+    let headers = new Headers();
+    headers.append("Content-Type", 'application/json');
+    let options = new RequestOptions({ headers: headers });
+    return this.http.post(this.apiURLnombreArchivo + '', data, options)
+      .timeout(timeoutMs)
+      .map(respuesta => respuesta.json());
   }
 
   guardarArchivo(files: FileList, tipo: string, codigo: string, lote: string) {
