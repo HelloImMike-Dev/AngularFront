@@ -12,6 +12,7 @@ import { Subscription } from 'rxjs/Subscription';
 import {CoreContainerComponent} from '../../../../core-container/core-container.component';
 import {Parametros} from '../../../../../class/Parametros.class';
 import {CamaraService, ErrorCamara} from '../../../../../services/camara/camara.service';
+import {folioVideoDeRespuesta, mensajeErrorSubidaVideo, timeoutSubidaVideo} from '../../../../../services/camara/video-api.util';
 
 @Component({
   selector: 'pn-vista-secciones-inspeccion',
@@ -93,6 +94,8 @@ export class VistaSeccionesInspeccionComponent implements OnInit, OnDestroy {
   guardandoVideo: boolean = false;
   videoGuardado: boolean = false;
   limiteGrabacion: boolean = false;
+  errorEnvioVideo: string = null;
+  private videoBase64: string = null;
 
    //pasosImprimirEtiqueta:boolean = true;
 
@@ -289,6 +292,9 @@ obtenerUbicacionNoDesp(tipo) {
      this.ubicacionImp = valor;
   }
   etiquetar() {
+    if (this.videoPendiente()) {
+      return;
+    }
     let codigo = this.partidaPrioridad.codigo;
     let lote = this.partidaPrioridad.lote;
     let folioDocumento = codigo +"-"+ lote;
@@ -1009,7 +1015,7 @@ reintentarCamara() {
   }
 }
 iniciarGrabacionInspeccion() {
-  if (this.videoGuardado || this.guardandoVideo || this.limiteGrabacion || this.camara.grabando) {
+  if (this.videoGuardado || this.guardandoVideo || this.videoBase64 || this.limiteGrabacion || this.camara.grabando) {
     return;
   }
   try {
@@ -1020,15 +1026,15 @@ iniciarGrabacionInspeccion() {
 }
 
 save() {
-  if (this.videoGuardado || this.guardandoVideo) {
+  if (this.videoGuardado || this.guardandoVideo || this.videoBase64) {
     return;
   }
   this.guardandoVideo = true;
   this.camara.detenerGrabacion()
     .then((blob: Blob) => this.camara.blobABase64(blob))
     .then((b64: string) => {
-      this.videoGuardado = true;
-      this.guardandoVideo = false;
+      // Se conserva el video para poder reintentar el envio sin volver a grabar
+      this.videoBase64 = b64;
       this.guardarVideo(b64);
     })
     .catch((error: ErrorCamara) => {
@@ -1040,22 +1046,60 @@ save() {
 }
 
 guardarVideo(obj: any) {
-  var data: any;
-  data = new Object;
-  data = {
+  const data = {
     video: obj,
     concepto: "Grabacion Lote Inspeccion"
   };
-  this.inspeccionT.nombreArchivo(data).subscribe(
-    data => {
-      console.log(data);
-      this.nombreArchivo = data.current;
+  this.guardandoVideo = true;
+  this.errorEnvioVideo = null;
+  this.inspeccionT.guardarVideo(data, timeoutSubidaVideo(obj)).subscribe(
+    respuesta => {
+      const folio = folioVideoDeRespuesta(respuesta);
+      if (!folio) {
+        console.log('Respuesta sin folio de video', respuesta);
+        this.errorGuardarVideo('El servidor no regresó el folio del video' +
+          (respuesta && respuesta.message ? ': ' + respuesta.message : '.'));
+        return;
+      }
+      this.guardandoVideo = false;
+      this.videoGuardado = true;
+      this.videoBase64 = null;
+      this.nombreArchivo = folio;
+      this.folioVideo = folio;
       this.comunService.enviaFolio(this.nombreArchivo);
-
     },
     error => {
       console.log(error);
+      this.errorGuardarVideo(mensajeErrorSubidaVideo(error));
     });
+}
+
+errorGuardarVideo(mensaje: string) {
+  this.guardandoVideo = false;
+  this.errorEnvioVideo = mensaje;
+  this.textoAlerta = 'No se pudo enviar el video de la inspección. ' + mensaje + ' Presiona "Reintentar envío".';
+  this.mostrarAlerta = true;
+}
+
+reintentarEnvioVideo() {
+  if (this.videoBase64 && !this.guardandoVideo) {
+    this.guardarVideo(this.videoBase64);
+  }
+}
+
+/** Evita finalizar mientras el video se sube o si fallo su envio, para no guardar la partida sin videoPartida */
+videoPendiente(): boolean {
+  if (this.guardandoVideo) {
+    this.textoAlerta = 'El video de la inspección se está guardando, espera a que termine para continuar.';
+    this.mostrarAlerta = true;
+    return true;
+  }
+  if (this.errorEnvioVideo) {
+    this.textoAlerta = 'El video de la inspección no se ha enviado. Presiona "Reintentar envío" antes de continuar.';
+    this.mostrarAlerta = true;
+    return true;
+  }
+  return false;
 }
 
 

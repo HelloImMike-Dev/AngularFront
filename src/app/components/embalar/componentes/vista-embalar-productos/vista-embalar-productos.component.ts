@@ -4,6 +4,7 @@ import {SessionUser} from '../../../../services/session/session.service';
 import {EmbalarService} from '../../../../services/embalar/embalar.service';
 import {ComunService} from '../../../../services/comun/comun.service';
 import {CamaraService, ErrorCamara} from '../../../../services/camara/camara.service';
+import {folioVideoDeRespuesta, mensajeErrorSubidaVideo, timeoutSubidaVideo} from '../../../../services/camara/video-api.util';
 @Component({
   selector: 'pq-vista-embalar-productos',
   templateUrl: './vista-embalar-productos.component.html',
@@ -208,6 +209,25 @@ export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterV
       this.mensajeAlerta = 'No se pudo guardar el video del embalaje. ' + (error && error.mensaje ? error.mensaje : '');
     });
   }
+  /** Mensaje que se muestra sobre el video, el guardado tiene prioridad sobre el estado de la camara */
+  get estadoVideoVista(): string {
+    if (this.reproduciendo) {
+      return null;
+    }
+    if (this.guardandoVideo) {
+      return 'guardando';
+    }
+    if (this.errorEnvio && !this.videoGuardado) {
+      return 'errorEnvio';
+    }
+    if (this.estadoCamara === 'abriendo') {
+      return 'abriendo';
+    }
+    if (this.estadoCamara === 'error') {
+      return 'errorCamara';
+    }
+    return null;
+  }
   reintentarEnvio() {
     if (this.activarPaking) {
       this.save();
@@ -216,24 +236,34 @@ export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterV
   cerrarAlerta() {
     this.mensajeAlerta = null;
   }
+  errorEnvioVideo(mensaje: string) {
+    this.guardandoVideo = false;
+    this.errorEnvio = true;
+    this.mensajeAlerta = 'No se pudo enviar el video del embalaje. ' + mensaje + ' Presiona "Reintentar envío".';
+  }
   guardarVideo(obj: any) {
     const datos = {
       video: obj,
       concepto: 'Grabacion Embalar'
     };
-    this.embalarServices.guardarVideo(datos).subscribe(
+    this.embalarServices.guardarVideo(datos, timeoutSubidaVideo(obj)).subscribe(
       data => {
+        const folio = folioVideoDeRespuesta(data);
+        if (!folio) {
+          console.log('Respuesta sin folio de video', data);
+          this.errorEnvioVideo('El servidor no regresó el folio del video' +
+            (data && data.message ? ': ' + data.message : '.'));
+          return;
+        }
         this.guardandoVideo = false;
         this.videoGuardado = true;
         this.videoBase64 = null;
-        this.nombreVideo = data.current;
+        this.nombreVideo = folio;
         console.log('Video ===> ', this.nombreVideo);
       },
       error => {
         console.log(error);
-        this.guardandoVideo = false;
-        this.errorEnvio = true;
-        this.mensajeAlerta = 'No se pudo enviar el video del embalaje. Verifica la conexión y presiona "Reintentar envío".';
+        this.errorEnvioVideo(mensajeErrorSubidaVideo(error));
       });
 
   }

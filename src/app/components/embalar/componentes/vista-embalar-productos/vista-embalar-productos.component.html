@@ -63,11 +63,15 @@
       </div>
       <video href="path" autoplay height="100%" *ngIf="videoValido" #video style="max-width:330px;">
       </video>
-      <div class="mensajeCamara" *ngIf="!reproduciendo && (estadoCamara === 'abriendo' || estadoCamara === 'error' || (errorEnvio && !guardandoVideo && !videoGuardado))">
-        <p class="tituloCamara">{{estadoCamara === 'error' ? 'CÁMARA NO DISPONIBLE' : (estadoCamara === 'abriendo' ? 'INICIANDO CÁMARA' : 'VIDEO NO ENVIADO')}}</p>
-        <p class="detalleCamara" *ngIf="estadoCamara === 'error'">{{errorCamara}}</p>
-        <div class="btnReintentar" *ngIf="estadoCamara === 'error'" (click)="reintentarCamara()">Reintentar cámara</div>
-        <div class="btnReintentar" *ngIf="estadoCamara !== 'error' && errorEnvio && activarPaking" (click)="reintentarEnvio()">Reintentar envío</div>
+      <div class="mensajeCamara" *ngIf="estadoVideoVista">
+        <p class="tituloCamara" *ngIf="estadoVideoVista === 'guardando'">GUARDANDO VIDEO...</p>
+        <p class="detalleCamara" *ngIf="estadoVideoVista === 'guardando'">No cierres esta pantalla hasta que termine.</p>
+        <p class="tituloCamara" *ngIf="estadoVideoVista === 'errorEnvio'">VIDEO NO ENVIADO</p>
+        <div class="btnReintentar" *ngIf="estadoVideoVista === 'errorEnvio' && activarPaking" (click)="reintentarEnvio()">Reintentar envío</div>
+        <p class="tituloCamara" *ngIf="estadoVideoVista === 'abriendo'">INICIANDO CÁMARA</p>
+        <p class="tituloCamara" *ngIf="estadoVideoVista === 'errorCamara'">CÁMARA NO DISPONIBLE</p>
+        <p class="detalleCamara" *ngIf="estadoVideoVista === 'errorCamara'">{{errorCamara}}</p>
+        <div class="btnReintentar" *ngIf="estadoVideoVista === 'errorCamara'" (click)="reintentarCamara()">Reintentar cámara</div>
       </div>
       <div class="enfoqueInferior" style="width:100%;flex-direction:row; justify-content:space-between; align-items: flex-end;">
         <img src="./assets/Images/Images/Inf_Izq.svg" alt="" class="imgEnfoque">

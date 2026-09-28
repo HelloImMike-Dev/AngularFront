@@ -78,6 +78,11 @@
   <!-- <pq-pop-informativo *ngIf="abrirPopInformativo" (cambioIndex)="cambioIndex($event)" > </pq-pop-informativo> -->
   <pn-pop-finalizar *ngIf="mostrarPopFinalizar" (imprimir)="imprimir($event)" (finalizar)="finalizarInspeccion($event)" [pzasE]= "contDespachable" [mensajeEtiqueta]="mensajeEtiqueta" [tipoColor]="true"></pn-pop-finalizar>
     <pn-pop-finalizar *ngIf="mostrarPopFinalizarNoDesp" (imprimir)="imprimir($event)" (finalizar)="finalizarInspeccion($event)" [pzasE]= "contIncidencia" [mensajeEtiqueta]="mensajeEtiqueta" [tipoColor]="false"></pn-pop-finalizar>
+    <div class="estadoVideo" *ngIf="guardandoVideo || errorEnvioVideo" [class.estadoVideoError]="!guardandoVideo">
+      <p *ngIf="guardandoVideo">Guardando video de la inspección...</p>
+      <p *ngIf="!guardandoVideo">Video no enviado. {{errorEnvioVideo}}</p>
+      <div class="botones" *ngIf="!guardandoVideo" (click)="reintentarEnvioVideo()"><label>REINTENTAR ENVÍO</label></div>
+    </div>
     <pq-alerta *ngIf="mostrarAlerta" [alertaTxt]="textoAlerta" (confirmacion)="cerrarAlerta($event)" ></pq-alerta>
 
 

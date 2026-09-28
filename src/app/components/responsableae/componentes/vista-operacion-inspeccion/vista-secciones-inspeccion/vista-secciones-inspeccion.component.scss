@@ -389,3 +389,31 @@
 .textoSuperiorImg{
   cursor: pointer;
 }
+
+// Estado del envio del video, flotante para que se vea en cualquier paso (en el paso 2 el video esta oculto)
+.estadoVideo {
+  position: fixed;
+  left: 50%;
+  bottom: 70px;
+  transform: translateX(-50%);
+  z-index: 5;
+  max-width: 80%;
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  box-sizing: border-box;
+  background: rgba(0, 136, 149, 0.95);
+  & > p {
+    font-family: 'Roboto';
+    font-size: 15px;
+    color: #FFFFFF;
+    margin: 0 16px 0 0;
+  }
+}
+
+.estadoVideoError {
+  background: rgba(193, 41, 46, 0.95);
+  & > .botones {
+    flex-shrink: 0;
+  }
+}
