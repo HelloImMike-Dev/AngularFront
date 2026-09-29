@@ -11,7 +11,9 @@ export interface ErrorCamara {
 @Injectable()
 export class CamaraService implements OnDestroy {
 
-  static readonly VIDEO_BITS_POR_SEGUNDO = 500000;
+  // 640x480 a 15 fps es suficiente como evidencia; con 350 kbps el video pesa ~2.6 MB por minuto
+  static readonly RESTRICCIONES_VIDEO = {width: {ideal: 640}, height: {ideal: 480}, frameRate: {ideal: 15}};
+  static readonly VIDEO_BITS_POR_SEGUNDO = 350000;
   static readonly DURACION_MAXIMA_MS = 20 * 60 * 1000;
   static readonly INTERVALO_CHUNK_MS = 1000;
   public errores = new Subject<ErrorCamara>();
@@ -23,6 +25,8 @@ export class CamaraService implements OnDestroy {
   private detencion: Promise<Blob> = null;
   private limiteTimer: any = null;
   private video: HTMLVideoElement = null;
+  private apertura: Promise<void> = null;
+  private destruido = false;
 
   static traducirError(error: any): ErrorCamara {
     const nombre = error && error.name ? error.name : '';
@@ -59,12 +63,22 @@ export class CamaraService implements OnDestroy {
       this.mostrarEnVideo();
       return Promise.resolve();
     }
+    // Si ya se esta abriendo se espera la misma apertura, para no abrir dos conexiones a la camara
+    if (this.apertura) {
+      return this.apertura;
+    }
     this.liberar();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return Promise.reject({tipo: 'sin-soporte', mensaje: 'Este equipo no permite el acceso a la cámara.'});
     }
-    return navigator.mediaDevices.getUserMedia({video: true, audio: false})
+    this.apertura = navigator.mediaDevices.getUserMedia({video: CamaraService.RESTRICCIONES_VIDEO, audio: false})
       .then((stream: MediaStream) => {
+        this.apertura = null;
+        if (this.destruido) {
+          // La pantalla se cerro mientras se abria la camara
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
         this.stream = stream;
         stream.getVideoTracks().forEach(track => {
           track.onended = () => this.errores.next({
@@ -74,8 +88,10 @@ export class CamaraService implements OnDestroy {
         });
         this.mostrarEnVideo();
       }, (error: any) => {
+        this.apertura = null;
         throw CamaraService.traducirError(error);
       });
+    return this.apertura;
   }
 
   /** Cambia el elemento de video donde se muestra la camara (por ejemplo si el *ngIf lo recreo). */
@@ -187,6 +203,7 @@ export class CamaraService implements OnDestroy {
   }
 
   ngOnDestroy() {
+    this.destruido = true;
     this.liberar();
     this.chunks = [];
     this.video = null;
