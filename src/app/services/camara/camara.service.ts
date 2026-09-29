@@ -167,19 +167,6 @@ export class CamaraService implements OnDestroy {
     return this.detencion;
   }
 
-  /** Convierte el video a base64 sin el prefijo data:...;base64, */
-  blobABase64(blob: Blob): Promise<string> {
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const resultado = reader.result as string;
-        resolve(resultado.substring(resultado.indexOf(',') + 1));
-      };
-      reader.onerror = () => reject({tipo: 'lectura', mensaje: 'No fue posible preparar el video para enviarlo.'} as ErrorCamara);
-      reader.readAsDataURL(blob);
-    });
-  }
-
   /** Apaga la camara y descarta la grabacion en curso. */
   liberar() {
     this.limpiarTimer();

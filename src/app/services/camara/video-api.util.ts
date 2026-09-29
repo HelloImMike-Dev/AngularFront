@@ -1,5 +1,5 @@
 /**
- * Utilerias para la subida de videos (Inspeccion y Embalar) al endpoint nombreArchivo.
+ * Utilerias para la subida de videos (Inspeccion y Embalar) al endpoint guardarVideo (multipart).
  * El backend responde errores con HTTP 403 y {status_code, message}, por eso no se debe
  * usar error.json().error: se perdia el mensaje y la pantalla quedaba sin aviso.
  */
@@ -8,10 +8,17 @@ export const TIMEOUT_MINIMO_SUBIDA_MS = 60 * 1000;
 // Velocidad minima de subida que se tolera antes de cortar por tiempo (256 KB/s)
 const BYTES_POR_SEGUNDO_MINIMO = 256 * 1024;
 
-/** Tiempo maximo de espera para subir un video segun su tamaño en base64. */
-export function timeoutSubidaVideo(base64: string): number {
-  const longitud = base64 ? base64.length : 0;
-  return TIMEOUT_MINIMO_SUBIDA_MS + Math.ceil(longitud / BYTES_POR_SEGUNDO_MINIMO) * 1000;
+/** Tiempo maximo de espera para subir un video segun su tamaño en bytes. */
+export function timeoutSubidaVideo(bytes: number): number {
+  return TIMEOUT_MINIMO_SUBIDA_MS + Math.ceil((bytes || 0) / BYTES_POR_SEGUNDO_MINIMO) * 1000;
+}
+
+/** Arma el cuerpo multipart: el video viaja como archivo binario, sin base64 ni JSON. */
+export function formularioVideo(video: Blob, concepto: string): FormData {
+  const formulario = new FormData();
+  formulario.append('video', video, 'video.webm');
+  formulario.append('concepto', concepto);
+  return formulario;
 }
 
 /** Regresa el folio del video si la respuesta trae uno valido, si no regresa null. */

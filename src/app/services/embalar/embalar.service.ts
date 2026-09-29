@@ -3,6 +3,7 @@ import { Http, Response, Headers,  RequestOptions } from '@angular/http';
 import { SessionUser } from '../session/session.service';
 import { Observable } from 'rxjs/Observable';
 import 'rxjs/add/operator/timeout';
+import {formularioVideo, timeoutSubidaVideo} from '../camara/video-api.util';
 import {Empleado} from '../../class/Empleado.class';
 import {Parametros} from '../../class/Parametros.class';
 import {error} from 'util';
@@ -29,20 +30,19 @@ export class EmbalarService {
   private apiURLfinalizarEvidenciaFac: String = SessionUser.getInstance().getIP() +"embalar/finalizarEvidenciaFac"; // Finalizar de cfdiFacturas
   private apiURLenviarCorreo: String = SessionUser.getInstance().getIP() +"embalar/enviarCorreo";
   private apiURLtotalesGeneral: String = SessionUser.getInstance().getIP() + 'embalar/totalesGeneral';
-  private apiURLGuardarVideo: string = SessionUser.getInstance().getIP() + 'nombreArchivo';
+  private apiURLGuardarVideo: string = SessionUser.getInstance().getIP() + 'guardarVideo';
   private apiURLValidarStock: string = SessionUser.getInstance().getIP() + 'embalar/prodsDeStock';
   constructor(private http: Http) {
     console.log("regreso de service embalaje");
   }
 
-  /** El error se entrega sin transformar para poder mostrar el codigo HTTP y el mensaje del backend */
-  guardarVideo(data: any, timeoutMs: number) {
-    let body = data;
-    let headers = new Headers();
-    headers.append("Content-Type", 'application/json');
-    let options = new RequestOptions({ headers: headers });
-    return this.http.post(this.apiURLGuardarVideo + '', body, options)
-      .timeout(timeoutMs)
+  /**
+   * Envia el video como archivo binario (multipart). El error se entrega sin transformar para poder
+   * mostrar el codigo HTTP y el mensaje del backend.
+   */
+  guardarVideo(video: Blob) {
+    return this.http.post(this.apiURLGuardarVideo, formularioVideo(video, 'Grabacion Embalar'))
+      .timeout(timeoutSubidaVideo(video.size))
       .map(data => data.json());
   }
   totalesGeneral() {

@@ -5,7 +5,7 @@ import {EmbalarService} from '../../../../services/embalar/embalar.service';
 import {ComunService} from '../../../../services/comun/comun.service';
 import {CamaraService, ErrorCamara} from '../../../../services/camara/camara.service';
 import {VideoPendienteService} from '../../../../services/camara/video-pendiente.service';
-import {folioVideoDeRespuesta, mensajeErrorSubidaVideo, timeoutSubidaVideo} from '../../../../services/camara/video-api.util';
+import {folioVideoDeRespuesta, mensajeErrorSubidaVideo} from '../../../../services/camara/video-api.util';
 const INSTRUCCIONES_SIN_VIDEO = 'Revisa que la cámara esté conectada y que no la esté usando otra aplicación (Teams, Zoom, etc.). Sal de Embalar, vuelve a entrar e inicia el embalaje de nuevo con la cámara funcionando. Si el problema continúa, reporta el motivo a Sistemas.';
 @Component({
   selector: 'pq-vista-embalar-productos',
@@ -98,7 +98,7 @@ export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterV
   motivoSinVideo: string; // Ultimo motivo por el que no se pudo grabar, para explicarlo al bloquear
   reproduciendo: boolean;
   private destruido: boolean;
-  private videoBase64: string;
+  private videoGrabado: Blob; // Se conserva para reintentar el envio sin volver a grabar
   private subsCamara: Subscription[] = [];
   private quitarRevisionVideo: () => void;
   datosClient: any;
@@ -219,23 +219,17 @@ export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterV
     }
     this.guardandoVideo = true;
     this.errorEnvio = false;
-    const obtenerVideo: Promise<string> = this.videoBase64 ? Promise.resolve(this.videoBase64) :
+    const obtenerVideo: Promise<Blob> = this.videoGrabado ? Promise.resolve(this.videoGrabado) :
       this.camara.detenerGrabacion().then(blob => {
         this.camara.liberar();
         this.estadoCamara = 'apagada';
-        return this.camara.blobABase64(blob);
+        return blob;
       });
-    obtenerVideo.then((b64: string) => {
-      this.videoBase64 = b64;
-      this.guardarVideo(b64);
+    obtenerVideo.then((video: Blob) => {
+      this.videoGrabado = video;
+      this.guardarVideo(video);
     }, (error: ErrorCamara) => {
       this.guardandoVideo = false;
-      if (error && error.tipo === 'lectura') {
-        // El video existe pero no se pudo preparar: se puede reintentar el envio
-        this.errorEnvio = true;
-        this.mensajeAlerta = 'No se pudo guardar el video del embalaje. ' + error.mensaje + ' Presiona "Reintentar envío".';
-        return;
-      }
       // Sin video no se permite generar el packing list; se explica el motivo original (p. ej. camara ocupada)
       this.sinVideo = true;
       this.motivoSinVideo = this.motivoSinVideo || (error && error.mensaje ? error.mensaje : 'No se pudo obtener el video grabado.');
@@ -278,12 +272,8 @@ export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterV
     this.errorEnvio = true;
     this.mensajeAlerta = 'No se pudo enviar el video del embalaje. ' + mensaje + ' Presiona "Reintentar envío".';
   }
-  guardarVideo(obj: any) {
-    const datos = {
-      video: obj,
-      concepto: 'Grabacion Embalar'
-    };
-    this.embalarServices.guardarVideo(datos, timeoutSubidaVideo(obj)).subscribe(
+  guardarVideo(video: Blob) {
+    this.embalarServices.guardarVideo(video).subscribe(
       data => {
         const folio = folioVideoDeRespuesta(data);
         if (!folio) {
@@ -294,7 +284,7 @@ export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterV
         }
         this.guardandoVideo = false;
         this.videoGuardado = true;
-        this.videoBase64 = null;
+        this.videoGrabado = null;
         this.nombreVideo = folio;
         console.log('Video ===> ', this.nombreVideo);
       },

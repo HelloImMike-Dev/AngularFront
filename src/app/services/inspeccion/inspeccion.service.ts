@@ -3,6 +3,7 @@ import { Http, Response, Headers, RequestOptions } from '@angular/http';
 import { SessionUser } from '../session/session.service';
 import { Observable } from 'rxjs/Observable';
 import 'rxjs/add/operator/timeout';
+import { formularioVideo, timeoutSubidaVideo } from '../camara/video-api.util';
 import { parametrosInspeccion } from '../../class/despachos/parametrosInspeccion.class';
 import { PartidaInspeccion } from '../../class/despachos/PartidaInspeccion.class';
 import { DocumentoAdjunto } from '../../class/comun/DocumentoAdjunto.class';
@@ -22,6 +23,7 @@ export class InspeccionService {
   private apiURLobtenerConsecutivoDeLoteInspeccion: string = SessionUser.getInstance().getIP() + "obtenerConsecutivoDeLoteInspeccion";
   private apiURLobtenerModoInspeccion: string = SessionUser.getInstance().getIP() + "obtenerModoInspeccion";
   private apiURLnombreArchivo: string = SessionUser.getInstance().getIP() + "nombreArchivo";
+  private apiURLguardarVideo: string = SessionUser.getInstance().getIP() + "guardarVideo";
   private apiURLguardarArchivo: string = SessionUser.getInstance().getIP() + "guardarArchivo";
   private apiURLobtenerUbicacion: string = SessionUser.getInstance().getIP() + "obtenerUbicacionInspeccion";
   private apiURLguardarExistenciaUbicaion: string = SessionUser.getInstance().getIP() + "guardarExistenciaUbicacion";
@@ -202,13 +204,13 @@ export class InspeccionService {
       .catch((error: any) => Observable.throw(error.json().error || 'Server error'))
   }
 
-  /** Igual que nombreArchivo pero con timeout y sin transformar el error, para mostrar el codigo HTTP y el mensaje del backend */
-  guardarVideo(data: any, timeoutMs: number) {
-    let headers = new Headers();
-    headers.append("Content-Type", 'application/json');
-    let options = new RequestOptions({ headers: headers });
-    return this.http.post(this.apiURLnombreArchivo + '', data, options)
-      .timeout(timeoutMs)
+  /**
+   * Envia el video de la inspeccion como archivo binario (multipart). El error se entrega sin transformar
+   * para poder mostrar el codigo HTTP y el mensaje del backend.
+   */
+  guardarVideo(video: Blob) {
+    return this.http.post(this.apiURLguardarVideo, formularioVideo(video, 'Grabacion Lote Inspeccion'))
+      .timeout(timeoutSubidaVideo(video.size))
       .map(respuesta => respuesta.json());
   }
 

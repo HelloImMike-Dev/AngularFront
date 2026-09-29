@@ -13,7 +13,7 @@ import {CoreContainerComponent} from '../../../../core-container/core-container.
 import {Parametros} from '../../../../../class/Parametros.class';
 import {CamaraService, ErrorCamara} from '../../../../../services/camara/camara.service';
 import {VideoPendienteService} from '../../../../../services/camara/video-pendiente.service';
-import {folioVideoDeRespuesta, mensajeErrorSubidaVideo, timeoutSubidaVideo} from '../../../../../services/camara/video-api.util';
+import {folioVideoDeRespuesta, mensajeErrorSubidaVideo} from '../../../../../services/camara/video-api.util';
 const INSTRUCCIONES_SIN_VIDEO = 'Revisa que la cámara esté conectada y que no la esté usando otra aplicación (Teams, Zoom, etc.). Regresa con VOLVER al paso anterior: la cámara se reconecta (o presiona "Reintentar cámara") y la grabación inicia de nuevo; vuelve a mostrar la partida en cámara y avanza. Si el problema continúa, reporta el motivo a Sistemas.';
 
 @Component({
@@ -98,7 +98,7 @@ export class VistaSeccionesInspeccionComponent implements OnInit, OnDestroy {
   limiteGrabacion: boolean = false;
   errorEnvioVideo: string = null;
   motivoSinVideo: string = null; // Ultimo motivo por el que no se pudo grabar, para explicarlo al bloquear
-  private videoBase64: string = null;
+  private videoGrabado: Blob = null; // Se conserva para reintentar el envio sin volver a grabar
   private quitarRevisionVideo: () => void;
 
    //pasosImprimirEtiqueta:boolean = true;
@@ -1038,7 +1038,7 @@ reintentarCamara() {
   }
 }
 iniciarGrabacionInspeccion() {
-  if (this.videoGuardado || this.guardandoVideo || this.videoBase64 || this.limiteGrabacion || this.camara.grabando) {
+  if (this.videoGuardado || this.guardandoVideo || this.videoGrabado || this.limiteGrabacion || this.camara.grabando) {
     return;
   }
   try {
@@ -1051,16 +1051,14 @@ iniciarGrabacionInspeccion() {
 }
 
 save() {
-  if (this.videoGuardado || this.guardandoVideo || this.videoBase64) {
+  if (this.videoGuardado || this.guardandoVideo || this.videoGrabado) {
     return;
   }
   this.guardandoVideo = true;
   this.camara.detenerGrabacion()
-    .then((blob: Blob) => this.camara.blobABase64(blob))
-    .then((b64: string) => {
-      // Se conserva el video para poder reintentar el envio sin volver a grabar
-      this.videoBase64 = b64;
-      this.guardarVideo(b64);
+    .then((video: Blob) => {
+      this.videoGrabado = video;
+      this.guardarVideo(video);
     })
     .catch((error: ErrorCamara) => {
       this.guardandoVideo = false;
@@ -1072,14 +1070,10 @@ save() {
     });
 }
 
-guardarVideo(obj: any) {
-  const data = {
-    video: obj,
-    concepto: "Grabacion Lote Inspeccion"
-  };
+guardarVideo(video: Blob) {
   this.guardandoVideo = true;
   this.errorEnvioVideo = null;
-  this.inspeccionT.guardarVideo(data, timeoutSubidaVideo(obj)).subscribe(
+  this.inspeccionT.guardarVideo(video).subscribe(
     respuesta => {
       const folio = folioVideoDeRespuesta(respuesta);
       if (!folio) {
@@ -1090,7 +1084,7 @@ guardarVideo(obj: any) {
       }
       this.guardandoVideo = false;
       this.videoGuardado = true;
-      this.videoBase64 = null;
+      this.videoGrabado = null;
       this.nombreArchivo = folio;
       this.folioVideo = folio;
       this.comunService.enviaFolio(this.nombreArchivo);
@@ -1109,8 +1103,8 @@ errorGuardarVideo(mensaje: string) {
 }
 
 reintentarEnvioVideo() {
-  if (this.videoBase64 && !this.guardandoVideo) {
-    this.guardarVideo(this.videoBase64);
+  if (this.videoGrabado && !this.guardandoVideo) {
+    this.guardarVideo(this.videoGrabado);
   }
 }
 
