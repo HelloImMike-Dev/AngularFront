@@ -10,12 +10,14 @@ import { Router } from '@angular/router';
 import { ComunService } from '../../../services/comun/comun.service';
 import { CoreContainerComponent } from '../../core-container/core-container.component';
 import { Parametros } from '../../../class/Parametros.class';
+import { CamaraService, ErrorCamara } from '../../../services/camara/camara.service';
 
 
 @Component({
   selector: 'pq-pop-up-editar-lote',
   templateUrl: './pop-up-editar-lote.component.html',
-  styleUrls: ['./pop-up-editar-lote.component.scss']
+  styleUrls: ['./pop-up-editar-lote.component.scss'],
+  providers: [CamaraService]
 })
 export class PopUpEditarLoteComponent implements OnInit {
   @Output() enviarUbicacionNoDesp: EventEmitter<any> = new EventEmitter<any>(); /// SE AGREGO PARA ENVIAR LA UBICACION DE NO DESPACHABLES
@@ -31,6 +33,8 @@ export class PopUpEditarLoteComponent implements OnInit {
   @Input() vistaPieza: boolean;
   @ViewChild("pop") pop: ElementRef;
   @ViewChild('popInf') private popInf: ElementRef;
+  @ViewChild('player') private player: ElementRef;
+  errorCamaraFotos: string;
 
 
   ubicacionImprimir: string; //// Se agrego para obtener la ubicacion desde el servicio
@@ -137,7 +141,8 @@ export class PopUpEditarLoteComponent implements OnInit {
     private _insp: InspeccionService,
     private _electronService: ElectronService,
     private coreComponent: CoreContainerComponent,
-    private _commonService: ComunService
+    private _commonService: ComunService,
+    private camara: CamaraService
     ) { }
 
   ngOnInit() {
@@ -935,20 +940,21 @@ export class PopUpEditarLoteComponent implements OnInit {
   }
 
   fotos() {
-    // navigator.getMedia = (navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia);
-    navigator.getUserMedia(
-      //constraints
-      { video: true, audio: false },
-      function(stream) {
-        var video = document.getElementsByTagName('video')[0];
-        video.src = window.URL.createObjectURL(stream);
-        video.muted = true;
-        video.play();
-      },
-      function(error) {
-        console.log(error);
-      })
-
+    // Conexion propia a la camara; si ya esta abierta solo se reutiliza y se libera al cerrar el pop-up
+    if (!this.player) {
+      // Se llama desde ngOnInit, antes de que exista el <video>
+      setTimeout(() => {
+        if (this.player) {
+          this.fotos();
+        }
+      });
+      return;
+    }
+    this.camara.iniciarCamara(this.player.nativeElement).then(() => {
+      this.errorCamaraFotos = null;
+    }, (error: ErrorCamara) => {
+      this.errorCamaraFotos = error && error.mensaje ? error.mensaje : 'No fue posible iniciar la cámara.';
+    });
   }
   takeSnapshot(tipo: string) {
     let video = <HTMLVideoElement>document.getElementById("player");

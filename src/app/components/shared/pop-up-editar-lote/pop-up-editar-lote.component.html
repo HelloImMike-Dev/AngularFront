@@ -154,6 +154,10 @@
                   <img src="./assets/Images/Images/Sup_Der.svg" alt="" class="imgEnfoque" style="top: 8px; right:0px; position: absolute;" >
                   <label > ENFOCA EL PRODUCTO</label>
                   <video  id="player" #player [style.display]= "prueba? 'block': 'none'"></video>
+                  <div class="errorCamaraFotos" *ngIf="prueba && errorCamaraFotos">
+                    <p>{{errorCamaraFotos}}</p>
+                    <div class="btnReintentarCamara" (click)="fotos()">REINTENTAR CÁMARA</div>
+                  </div>
 
                   <img src="./assets/Images/Images/Inf_Izq.svg" alt="" class="imgEnfoque" style="bottom:0px; left: 0px; position: absolute;">
                   <img src="./assets/Images/Images/Inf_Der.svg" alt=""   class="imgEnfoque" style="bottom:0px; right:0px; position: absolute;">
