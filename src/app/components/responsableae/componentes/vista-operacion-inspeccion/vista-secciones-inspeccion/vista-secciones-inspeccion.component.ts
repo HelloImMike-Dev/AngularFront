@@ -14,6 +14,7 @@ import {Parametros} from '../../../../../class/Parametros.class';
 import {CamaraService, ErrorCamara} from '../../../../../services/camara/camara.service';
 import {VideoPendienteService} from '../../../../../services/camara/video-pendiente.service';
 import {folioVideoDeRespuesta, mensajeErrorSubidaVideo, timeoutSubidaVideo} from '../../../../../services/camara/video-api.util';
+const INSTRUCCIONES_SIN_VIDEO = 'Revisa que la cámara esté conectada y que no la esté usando otra aplicación (Teams, Zoom, etc.). Regresa con VOLVER al paso anterior: la cámara se reconecta (o presiona "Reintentar cámara") y la grabación inicia de nuevo; vuelve a mostrar la partida en cámara y avanza. Si el problema continúa, reporta el motivo a Sistemas.';
 
 @Component({
   selector: 'pn-vista-secciones-inspeccion',
@@ -96,6 +97,7 @@ export class VistaSeccionesInspeccionComponent implements OnInit, OnDestroy {
   videoGuardado: boolean = false;
   limiteGrabacion: boolean = false;
   errorEnvioVideo: string = null;
+  motivoSinVideo: string = null; // Ultimo motivo por el que no se pudo grabar, para explicarlo al bloquear
   private videoBase64: string = null;
   private quitarRevisionVideo: () => void;
 
@@ -146,7 +148,7 @@ export class VistaSeccionesInspeccionComponent implements OnInit, OnDestroy {
           }
         ));
     this.subs.add(this.camara.errores.subscribe((error: ErrorCamara) => {
-      this.zone.run(() => this.errorCamara = error.mensaje);
+      this.zone.run(() => this.errorCamara = this.motivoSinVideo = error.mensaje);
     }));
     this.subs.add(this.camara.limiteAlcanzado.subscribe(() => {
       this.zone.run(() => {
@@ -1026,6 +1028,7 @@ abrirCamara(video: HTMLVideoElement) {
   }, (error: ErrorCamara) => {
     this.iniciandoCamara = false;
     this.errorCamara = error && error.mensaje ? error.mensaje : 'No fue posible iniciar la cámara.';
+    this.motivoSinVideo = this.errorCamara;
   });
 }
 
@@ -1040,8 +1043,10 @@ iniciarGrabacionInspeccion() {
   }
   try {
     this.camara.iniciarGrabacion();
+    this.motivoSinVideo = null;
   } catch (error) {
     this.errorCamara = error && error.mensaje ? error.mensaje : 'No fue posible iniciar la grabación del video.';
+    this.motivoSinVideo = this.errorCamara;
   }
 }
 
@@ -1060,7 +1065,9 @@ save() {
     .catch((error: ErrorCamara) => {
       this.guardandoVideo = false;
       console.log(error);
-      this.textoAlerta = 'No se pudo guardar el video de la inspección. ' + (error && error.mensaje ? error.mensaje : '');
+      // Se conserva el motivo original (p. ej. camara ocupada) sobre el generico de "no hay grabacion"
+      this.motivoSinVideo = this.motivoSinVideo || (error && error.mensaje ? error.mensaje : 'No se pudo obtener el video grabado.');
+      this.textoAlerta = 'No se grabó video de la inspección. Motivo: ' + this.motivoSinVideo + ' ' + INSTRUCCIONES_SIN_VIDEO;
       this.mostrarAlerta = true;
     });
 }
@@ -1116,6 +1123,13 @@ videoPendiente(): boolean {
   }
   if (this.errorEnvioVideo) {
     this.textoAlerta = 'El video de la inspección no se ha enviado. Presiona "Reintentar envío" antes de continuar.';
+    this.mostrarAlerta = true;
+    return true;
+  }
+  if (!this.videoGuardado) {
+    // No se permite finalizar una partida sin video de evidencia
+    this.textoAlerta = 'No se puede continuar: la inspección no tiene video grabado. Motivo: ' +
+      (this.motivoSinVideo || 'No se detectó una grabación en curso.') + ' ' + INSTRUCCIONES_SIN_VIDEO;
     this.mostrarAlerta = true;
     return true;
   }

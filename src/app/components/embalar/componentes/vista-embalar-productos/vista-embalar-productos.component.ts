@@ -6,6 +6,7 @@ import {ComunService} from '../../../../services/comun/comun.service';
 import {CamaraService, ErrorCamara} from '../../../../services/camara/camara.service';
 import {VideoPendienteService} from '../../../../services/camara/video-pendiente.service';
 import {folioVideoDeRespuesta, mensajeErrorSubidaVideo, timeoutSubidaVideo} from '../../../../services/camara/video-api.util';
+const INSTRUCCIONES_SIN_VIDEO = 'Revisa que la cámara esté conectada y que no la esté usando otra aplicación (Teams, Zoom, etc.). Sal de Embalar, vuelve a entrar e inicia el embalaje de nuevo con la cámara funcionando. Si el problema continúa, reporta el motivo a Sistemas.';
 @Component({
   selector: 'pq-vista-embalar-productos',
   templateUrl: './vista-embalar-productos.component.html',
@@ -93,6 +94,8 @@ export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterV
   guardandoVideo: boolean;
   videoGuardado: boolean;
   errorEnvio: boolean;
+  sinVideo: boolean; // No hay video que enviar: no se puede generar el packing list
+  motivoSinVideo: string; // Ultimo motivo por el que no se pudo grabar, para explicarlo al bloquear
   reproduciendo: boolean;
   private destruido: boolean;
   private videoBase64: string;
@@ -194,19 +197,21 @@ export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterV
       return; // Se inicia en cuanto la camara este lista
     }
     if (this.estadoCamara === 'error') {
-      this.mensajeAlerta = 'La cámara no está disponible, el embalaje NO se está grabando. ' + this.errorCamara;
+      this.mensajeAlerta = 'La cámara no está disponible, el embalaje NO se está grabando y no podrás generar el packing list sin video. ' + this.errorCamara;
       return;
     }
     try {
       this.camara.iniciarGrabacion();
+      this.motivoSinVideo = null;
     } catch (error) {
       this.mostrarErrorCamara(error);
-      this.mensajeAlerta = 'El embalaje NO se está grabando. ' + this.errorCamara;
+      this.mensajeAlerta = 'El embalaje NO se está grabando y no podrás generar el packing list sin video. ' + this.errorCamara;
     }
   }
   mostrarErrorCamara(error: ErrorCamara) {
     this.estadoCamara = 'error';
     this.errorCamara = error && error.mensaje ? error.mensaje : 'No fue posible iniciar la cámara.';
+    this.motivoSinVideo = this.errorCamara;
   }
   save() {
     if (this.guardandoVideo || this.videoGuardado) {
@@ -225,8 +230,17 @@ export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterV
       this.guardarVideo(b64);
     }, (error: ErrorCamara) => {
       this.guardandoVideo = false;
-      this.errorEnvio = true;
-      this.mensajeAlerta = 'No se pudo guardar el video del embalaje. ' + (error && error.mensaje ? error.mensaje : '');
+      if (error && error.tipo === 'lectura') {
+        // El video existe pero no se pudo preparar: se puede reintentar el envio
+        this.errorEnvio = true;
+        this.mensajeAlerta = 'No se pudo guardar el video del embalaje. ' + error.mensaje + ' Presiona "Reintentar envío".';
+        return;
+      }
+      // Sin video no se permite generar el packing list; se explica el motivo original (p. ej. camara ocupada)
+      this.sinVideo = true;
+      this.motivoSinVideo = this.motivoSinVideo || (error && error.mensaje ? error.mensaje : 'No se pudo obtener el video grabado.');
+      this.mensajeAlerta = 'No se puede generar el packing list: el embalaje no tiene video grabado. Motivo: ' +
+        this.motivoSinVideo + ' ' + INSTRUCCIONES_SIN_VIDEO;
     });
   }
   /** Mensaje que se muestra sobre el video, el guardado tiene prioridad sobre el estado de la camara */
@@ -239,6 +253,9 @@ export class VistaEmbalarProductosComponent implements OnInit, OnChanges, AfterV
     }
     if (this.errorEnvio && !this.videoGuardado) {
       return 'errorEnvio';
+    }
+    if (this.sinVideo) {
+      return 'sinVideo';
     }
     if (this.estadoCamara === 'abriendo') {
       return 'abriendo';

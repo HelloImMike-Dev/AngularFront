@@ -68,6 +68,8 @@
         <p class="detalleCamara" *ngIf="estadoVideoVista === 'guardando'">No cierres esta pantalla hasta que termine.</p>
         <p class="tituloCamara" *ngIf="estadoVideoVista === 'errorEnvio'">VIDEO NO ENVIADO</p>
         <div class="btnReintentar" *ngIf="estadoVideoVista === 'errorEnvio' && activarPaking" (click)="reintentarEnvio()">Reintentar envío</div>
+        <p class="tituloCamara" *ngIf="estadoVideoVista === 'sinVideo'">SIN VIDEO DEL EMBALAJE</p>
+        <p class="detalleCamara" *ngIf="estadoVideoVista === 'sinVideo'">{{motivoSinVideo}}</p>
         <p class="tituloCamara" *ngIf="estadoVideoVista === 'abriendo'">INICIANDO CÁMARA</p>
         <p class="tituloCamara" *ngIf="estadoVideoVista === 'errorCamara'">CÁMARA NO DISPONIBLE</p>
         <p class="detalleCamara" *ngIf="estadoVideoVista === 'errorCamara'">{{errorCamara}}</p>
